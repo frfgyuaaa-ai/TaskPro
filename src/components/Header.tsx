@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { TASKPRO_LOGO, SARAH_AVATAR } from '../data/initialTasks';
-import { Screen, UserProfile } from '../types/task';
+import { TASKPRO_LOGO } from '../data/initialTasks';
+import { Screen, UserProfile, Task } from '../types/task';
 import { LanguageSelector } from './LanguageSelector';
+import { UserAvatar } from './UserAvatar';
 import { useTranslation } from '../i18n/LanguageContext';
 
 interface HeaderProps {
@@ -12,6 +13,8 @@ interface HeaderProps {
   user: UserProfile;
   title?: string;
   onBack?: () => void;
+  tasks?: Task[];
+  onFixOverdueTask?: (taskId: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,12 +25,16 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   title,
   onBack,
+  tasks = [],
+  onFixOverdueTask,
 }) => {
   const { t } = useTranslation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const isStackScreen = currentScreen === 'new_task' || currentScreen === 'task_details';
+
+  const overdueTasks = tasks.filter((t) => t.isOverdue && t.status !== 'completed');
 
   return (
     <header className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-surface-container-high/40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
@@ -84,7 +91,11 @@ export const Header: React.FC<HeaderProps> = ({
               className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center relative rounded-full bg-surface-container-high/60 text-on-surface-variant hover:text-primary transition-all active:scale-90"
             >
               <span className="material-symbols-outlined text-[21px] sm:text-[22px]">notifications</span>
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface animate-pulse" />
+              {overdueTasks.length > 0 ? (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface animate-pulse" />
+              ) : (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-secondary ring-2 ring-surface" />
+              )}
             </button>
 
             {/* Notifications Popover */}
@@ -92,25 +103,57 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="absolute right-0 top-12 w-80 bg-surface-container-lowest border border-surface-container-high rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in zoom-in-95">
                 <div className="flex items-center justify-between pb-2 border-b border-surface-container">
                   <span className="font-headline text-sm font-semibold text-on-surface">{t('notifications')}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-semibold">
-                    {t('oneNew')}
-                  </span>
+                  {overdueTasks.length > 0 ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-semibold">
+                      {overdueTasks.length} {t('overduePill')}
+                    </span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-semibold">
+                      ✓ Ajoyib
+                    </span>
+                  )}
                 </div>
                 <div className="py-2 space-y-2">
-                  <div className="p-2.5 rounded-xl bg-error-container/20 border border-error-container/40 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-error text-[20px] mt-0.5">warning</span>
-                    <div className="text-xs">
-                      <p className="font-semibold text-error">Strategy Deck is 2h overdue</p>
-                      <p className="text-on-surface-variant mt-0.5">Executive sync begins in 30 minutes.</p>
-                      <span className="text-[10px] text-outline mt-1 block">Today, 3:00 PM</span>
+                  {overdueTasks.length > 0 ? (
+                    overdueTasks.map((ot) => (
+                      <div key={ot.id} className="p-2.5 rounded-xl bg-error-container/20 border border-error-container/40 flex items-start gap-2.5">
+                        <span className="material-symbols-outlined text-error text-[20px] mt-0.5">warning</span>
+                        <div className="text-xs flex-1 min-w-0">
+                          <p className="font-semibold text-error truncate">{ot.title}</p>
+                          <p className="text-on-surface-variant mt-0.5">Muddati o‘tgan deb belgilangan.</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-[10px] text-outline">{ot.dueDate}</span>
+                            {onFixOverdueTask && (
+                              <button
+                                onClick={() => {
+                                  onFixOverdueTask(ot.id);
+                                  setShowNotifications(false);
+                                }}
+                                className="text-[11px] font-bold text-primary hover:underline bg-surface-container px-2 py-0.5 rounded"
+                              >
+                                {t('fixOverdue')}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-secondary-container/20 border border-secondary-container/40 flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5">check_circle</span>
+                      <div className="text-xs">
+                        <p className="font-semibold text-on-surface">Barcha vazifalar reja asosida!</p>
+                        <p className="text-on-surface-variant mt-0.5">Hech qanday kechikish yoki xatolik yo‘q.</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
                   <div className="p-2.5 rounded-xl hover:bg-surface-container flex items-start gap-2.5 transition-colors cursor-pointer">
                     <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5">sync</span>
                     <div className="text-xs">
                       <p className="font-medium text-on-surface">{t('syncedApps')}</p>
                       <p className="text-on-surface-variant mt-0.5">Slack, Google Calendar, GitHub.</p>
-                      <span className="text-[10px] text-outline mt-1 block">10 mins ago</span>
+                      <span className="text-[10px] text-outline mt-1 block">Jonli sinxronizatsiya faol</span>
                     </div>
                   </div>
                 </div>
@@ -142,19 +185,18 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="w-8 h-8 rounded-full ring-2 ring-primary/30 hover:ring-primary transition-all overflow-hidden active:scale-95 flex items-center justify-center"
             >
-              <img
-                alt={user.name}
-                className="w-full h-full object-cover"
-                src={user.avatar || SARAH_AVATAR}
-              />
+              <UserAvatar name={user.name} avatar={user.avatar} size="md" avatarColor={user.avatarColor} />
             </button>
 
             {/* User Quick Menu */}
             {showUserMenu && (
               <div className="absolute right-0 top-11 w-52 bg-surface-container-lowest border border-surface-container-high rounded-2xl shadow-2xl p-2 z-50">
-                <div className="px-3 py-2 border-b border-surface-container">
-                  <p className="font-headline font-semibold text-xs text-on-surface truncate">{user.name}</p>
-                  <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
+                <div className="px-3 py-2 border-b border-surface-container flex items-center gap-2.5">
+                  <UserAvatar name={user.name} avatar={user.avatar} size="sm" avatarColor={user.avatarColor} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-headline font-semibold text-xs text-on-surface truncate">{user.name}</p>
+                    <p className="text-[11px] text-on-surface-variant truncate">{user.email}</p>
+                  </div>
                 </div>
                 <div className="py-1">
                   <button
@@ -197,3 +239,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

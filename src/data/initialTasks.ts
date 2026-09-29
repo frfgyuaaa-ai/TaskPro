@@ -216,3 +216,121 @@ export const INITIAL_TASKS: Task[] = [
     tags: ['Personal', 'Travel'],
   },
 ];
+
+export const createPersonalizedTasks = (user: UserProfile): Task[] => {
+  const firstName = user.name.split(' ')[0] || user.name;
+  return [
+    {
+      id: `task-${Date.now()}-1`,
+      title: `${firstName}'ning reja va vazifalarini ko'rib chiqish`,
+      description: 'Haftalik reja, maqsadlar va asosiy ustuvor loyihalarni muvofiqlashtirish.',
+      fullDescription: 'Barcha asosiy yo‘nalishlar bo‘yicha vazifalarni rejalashtirish, jamoa bilan sinxronizatsiya qilish va muhim natijalarga erishish.',
+      project: 'Shaxsiy reja',
+      category: 'Work',
+      priority: 'high',
+      status: 'in_progress',
+      dueDate: 'Bugun, 18:00',
+      dueTime: '06:00 PM',
+      isOverdue: false,
+      isPinned: true,
+      subtasks: [
+        { id: `st-${Date.now()}-1-1`, title: 'Kunlik vazifalar ro‘yxatini tuzish', completed: true },
+        { id: `st-${Date.now()}-1-2`, title: 'Jamoa bilan haftalik rejani tasdiqlash', completed: false, isUrgent: true },
+        { id: `st-${Date.now()}-1-3`, title: 'Kerakli hujjatlarni tayyorlash', completed: false },
+      ],
+      assignees: [
+        { name: user.name, avatar: user.avatar },
+        { name: 'Elena Rostova', avatar: COLLEAGUE_1 },
+      ],
+      tags: ['Reja', 'Ish'],
+      reminder: {
+        enabled: true,
+        timing: '30m',
+      },
+      activities: [
+        {
+          id: `act-${Date.now()}-1`,
+          author: user.name,
+          avatar: user.avatar,
+          text: 'Vazifalar tasdiqlandi va ijroga qabul qilindi.',
+          time: 'Hozirgina',
+        },
+      ],
+    },
+    {
+      id: `task-${Date.now()}-2`,
+      title: 'Mobil ilova interfeysi va yangi dizaynni tekshirish',
+      description: 'Foydalanuvchi qulayligi, animatsiyalar va tugmalar sezgirligini sinovdan o‘tkazish.',
+      fullDescription: 'Ilovaning barcha ekranlari to‘g‘ri va tez ishlashini, safe-area qoplamalarini va ranglar uyg‘unligini tekshirish.',
+      project: 'UI/UX Sinov',
+      category: 'Design System',
+      priority: 'medium',
+      status: 'in_progress',
+      dueDate: 'Ertaga, 12:00',
+      dueTime: '12:00 PM',
+      isOverdue: false,
+      isPinned: false,
+      subtasks: [
+        { id: `st-${Date.now()}-2-1`, title: 'Tugmalar va navigatsiyani tekshirish', completed: true },
+        { id: `st-${Date.now()}-2-2`, title: 'Tungi va kunduzgi rejimni sinash', completed: true },
+        { id: `st-${Date.now()}-2-3`, title: 'Barcha tillar to‘g‘ri chiqishini tasdiqlash', completed: false },
+      ],
+      assignees: [
+        { name: user.name, avatar: user.avatar },
+      ],
+      tags: ['Dizayn', 'Mobil'],
+      reminder: {
+        enabled: true,
+        timing: '15m',
+      },
+    },
+    {
+      id: `task-${Date.now()}-3`,
+      title: 'Ertalabki yugurish va sog‘lom turmush tarzi',
+      description: 'Park bo‘ylab 4 km yugurish va quvvatlantiruvchi mashqlar.',
+      fullDescription: 'Muntazam sport bilan shug‘ullanish, kunlik faollik va qadamlar sonini to‘ldirish.',
+      category: 'Fitness',
+      priority: 'low',
+      status: 'completed',
+      dueDate: 'Bugun',
+      dueTime: '08:00 AM',
+      completedAt: '8:30 AM',
+      isOverdue: false,
+      isPinned: false,
+      metrics: {
+        calories: '380 kcal sarflandi',
+        duration: '25 daqiqa',
+      },
+      subtasks: [
+        { id: `st-${Date.now()}-3-1`, title: 'Ertalabki badantarbiya', completed: true },
+        { id: `st-${Date.now()}-3-2`, title: 'Yugurish marshruti', completed: true },
+      ],
+      assignees: [
+        { name: user.name, avatar: user.avatar },
+      ],
+      tags: ['Sport', 'Salomatlik'],
+    },
+    {
+      id: `task-${Date.now()}-4`,
+      title: 'Yangi ko‘nikmalar va kasbiy kitob mutolaasi',
+      description: 'Zamonaviy texnologiyalar va mahsuldorlik haqida 20 sahifa o‘qish.',
+      fullDescription: 'Shaxsiy rivojlanish uchun foydali materiallarni tahlil qilish va qaydlar yozib borish.',
+      project: 'Rivojlanish',
+      category: 'Study',
+      priority: 'low',
+      status: 'todo',
+      dueDate: 'Yakshanba, 20:00',
+      dueTime: '08:00 PM',
+      isOverdue: false,
+      subtasks: [
+        { id: `st-${Date.now()}-4-1`, title: 'Asosiy tushunchalarni belgilash', completed: false },
+        { id: `st-${Date.now()}-4-2`, title: 'Xulosalarni qaydnomaga kiritish', completed: false },
+      ],
+      assignees: [
+        { name: user.name, avatar: user.avatar },
+      ],
+      tags: ['Mutolaa', 'O‘qish'],
+    },
+  ];
+};
+

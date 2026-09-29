@@ -1,41 +1,54 @@
-import React, { useState, useMemo } from 'react';
-import { Task, Priority } from '../types/task';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Task, Priority, UserProfile, Category } from '../types/task';
 import { useTranslation } from '../i18n/LanguageContext';
+import { UserAvatar } from '../components/UserAvatar';
 
 interface TasksFeedScreenProps {
   tasks: Task[];
+  user: UserProfile;
   onToggleTaskComplete: (taskId: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onTogglePin: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onSelectTask: (task: Task) => void;
   onNewTask: () => void;
+  onFixOverdueTask?: (taskId: string) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  initialCategory?: Category | null;
 }
 
 export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
   tasks,
+  user,
   onToggleTaskComplete,
   onToggleSubtask,
   onTogglePin,
   onDeleteTask,
   onSelectTask,
   onNewTask,
+  onFixOverdueTask,
   isDarkMode,
   onToggleDarkMode,
+  initialCategory,
 }) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<string>('All');
+  const [activeFilter, setActiveFilter] = useState<string>(initialCategory || 'All');
   const [sortBy, setSortBy] = useState<'deadline' | 'priority' | 'alphabetical'>('deadline');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  useEffect(() => {
+    if (initialCategory) {
+      setActiveFilter(initialCategory);
+    }
+  }, [initialCategory]);
 
   // Dynamic counts for filters
   const counts = useMemo(() => {
     return {
       all: tasks.length,
-      today: tasks.filter(t => t.dueDate.toLowerCase().includes('today') || t.status === 'in_progress').length,
+      today: tasks.filter(t => t.dueDate.toLowerCase().includes('today') || t.dueDate.toLowerCase().includes('bugun') || t.status === 'in_progress').length,
       high: tasks.filter(t => t.priority === 'high').length,
       overdue: tasks.filter(t => t.isOverdue && t.status !== 'completed').length,
       work: tasks.filter(t => t.category === 'Work').length,
@@ -68,7 +81,11 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
 
       // Filter chips
       if (activeFilter === 'Today') {
-        return task.dueDate.toLowerCase().includes('today') || task.status === 'in_progress';
+        return (
+          task.dueDate.toLowerCase().includes('today') ||
+          task.dueDate.toLowerCase().includes('bugun') ||
+          task.status === 'in_progress'
+        );
       }
       if (activeFilter === 'High Priority') {
         return task.priority === 'high';
@@ -84,6 +101,9 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
       }
       if (activeFilter === 'Fitness') {
         return task.category === 'Fitness';
+      }
+      if (activeFilter === 'Design System') {
+        return task.category === 'Design System';
       }
       return true;
     });
@@ -110,8 +130,11 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
     return result;
   }, [tasks, searchQuery, activeFilter, sortBy]);
 
-  const dueTodayCount = tasks.filter(t => t.dueDate.toLowerCase().includes('today') && t.status !== 'completed').length;
+  const dueTodayCount = tasks.filter(
+    t => (t.dueDate.toLowerCase().includes('today') || t.dueDate.toLowerCase().includes('bugun')) && t.status !== 'completed'
+  ).length;
   const overdueCount = tasks.filter(t => t.isOverdue && t.status !== 'completed').length;
+  const userFirstName = user.name.trim().split(' ')[0] || user.name;
 
   return (
     <div className="flex flex-col w-full max-w-2xl mx-auto px-4 pb-28 pt-2">
@@ -132,11 +155,11 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
         </button>
       </div>
 
-      {/* Top Hero Greeting */}
+      {/* Top Hero Greeting customized for user */}
       <section className="flex flex-col gap-1 mb-4">
         <div className="flex items-center justify-between">
           <h1 className="font-headline text-2xl sm:text-3xl text-on-surface font-semibold tracking-tight">
-            {t('hello')}, Sarah <span className="inline-block animate-bounce origin-bottom-right">👋</span>
+            {t('hello')}, {userFirstName} <span className="inline-block animate-bounce origin-bottom-right">👋</span>
           </h1>
           {/* Mini productivity sparkline badge */}
           <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary-container/50 text-on-secondary-container text-xs font-semibold">
@@ -424,16 +447,29 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Overdue Callout Badge if applicable */}
+                {/* Overdue Callout Badge with quick 1-tap resolve button */}
                 {!isCompleted && task.isOverdue && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-error-container/60 text-on-error-container text-xs w-fit pl-1 mb-2">
-                    <span className="material-symbols-outlined text-[18px] text-error">error</span>
-                    <span className="font-semibold text-error">{t('overdueBy')} 2h</span>
-                    <span className="text-on-surface-variant">• Today 3:00 PM</span>
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-error-container/60 text-on-error-container text-xs w-full pl-2 mb-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="material-symbols-outlined text-[18px] text-error shrink-0">schedule</span>
+                      <span className="font-semibold text-error truncate">{t('overdueBy')} 2h</span>
+                      <span className="text-on-surface-variant text-[11px] truncate">• {task.dueDate}</span>
+                    </div>
+                    {onFixOverdueTask && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onFixOverdueTask(task.id);
+                        }}
+                        className="shrink-0 px-2 py-0.5 rounded bg-surface-container-lowest hover:bg-surface text-primary font-bold text-[11px] shadow-2xs transition-all active:scale-95"
+                      >
+                        ✓ {t('fixOverdue')}
+                      </button>
+                    )}
                   </div>
                 )}
 
-                {/* Due Date & Attachments (Medium Priority Card style) */}
+                {/* Due Date & Attachments */}
                 {!isCompleted && !task.isOverdue && task.dueDate && (
                   <div className="flex flex-wrap items-center gap-2 pl-1 mb-2">
                     <span className="inline-flex items-center gap-1 text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-md font-medium">
@@ -524,12 +560,12 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
                   <div className="flex items-center -space-x-1.5">
                     {task.assignees && task.assignees.length > 0 ? (
                       task.assignees.map((assignee, idx) => (
-                        <img
+                        <UserAvatar
                           key={idx}
-                          src={assignee.avatar}
-                          alt={assignee.name}
-                          className="w-6 h-6 rounded-full object-cover ring-2 ring-surface"
-                          title={assignee.name}
+                          name={assignee.name}
+                          avatar={assignee.avatar}
+                          size="sm"
+                          className="ring-2 ring-surface"
                         />
                       ))
                     ) : (
@@ -537,7 +573,7 @@ export const TasksFeedScreen: React.FC<TasksFeedScreenProps> = ({
                     )}
                     {task.assignees && task.assignees.length > 2 && (
                       <span className="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center text-[10px] text-on-surface font-bold ring-2 ring-surface">
-                        +2
+                        +{task.assignees.length - 2}
                       </span>
                     )}
                     {task.assignees && task.assignees.length === 1 && (

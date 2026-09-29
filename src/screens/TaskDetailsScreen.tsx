@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { Task, Subtask, ActivityItem } from '../types/task';
+import React, { useState, useEffect } from 'react';
+import { Task, Subtask, ActivityItem, UserProfile } from '../types/task';
 import { SARAH_AVATAR } from '../data/initialTasks';
 import { useTranslation } from '../i18n/LanguageContext';
+import { UserAvatar } from '../components/UserAvatar';
 
 interface TaskDetailsScreenProps {
   task: Task;
+  user?: UserProfile;
   onUpdateTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (task: Task) => void;
@@ -13,6 +15,7 @@ interface TaskDetailsScreenProps {
 
 export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   task,
+  user,
   onUpdateTask,
   onDeleteTask,
   onEditTask,
@@ -26,6 +29,11 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleText, setTitleText] = useState(task.title);
+
+  useEffect(() => {
+    setCurrentTask(task);
+    setTitleText(task.title);
+  }, [task]);
 
   const isCompleted = currentTask.status === 'completed';
   const subtasks = currentTask.subtasks || [];
@@ -64,7 +72,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     onUpdateTask(updated);
   };
 
-  // Add subtask
+  // Add Subtask
   const handleAddSubtask = () => {
     if (!newSubtaskText.trim()) return;
     const newSub: Subtask = {
@@ -72,7 +80,10 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
       title: newSubtaskText.trim(),
       completed: false,
     };
-    const updated: Task = { ...currentTask, subtasks: [...subtasks, newSub] };
+    const updated: Task = {
+      ...currentTask,
+      subtasks: [...subtasks, newSub],
+    };
     setCurrentTask(updated);
     onUpdateTask(updated);
     setNewSubtaskText('');
@@ -81,12 +92,14 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
   // Add Comment/Activity
   const handleAddComment = () => {
     if (!newCommentText.trim()) return;
+    const authorName = user?.name || 'Siz';
+    const authorAvatar = user?.avatar || '';
     const newActivity: ActivityItem = {
       id: `act-${Date.now()}`,
-      author: 'Sarah Connor',
-      avatar: SARAH_AVATAR,
+      author: authorName,
+      avatar: authorAvatar,
       text: newCommentText.trim(),
-      time: 'Just now',
+      time: 'Hozirgina',
     };
     const updated: Task = {
       ...currentTask,
@@ -95,6 +108,18 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     setCurrentTask(updated);
     onUpdateTask(updated);
     setNewCommentText('');
+  };
+
+  // Quick fix overdue (clears error and sets date to today on schedule)
+  const handleQuickFixOverdue = () => {
+    const updated: Task = {
+      ...currentTask,
+      dueDate: 'Bugun, 18:00',
+      isOverdue: false,
+    };
+    setCurrentTask(updated);
+    onUpdateTask(updated);
+    setShowRescheduleModal(false);
   };
 
   // Reschedule
@@ -121,16 +146,22 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
     onUpdateTask(updated);
   };
 
+  const primaryAssignee = currentTask.assignees?.[0] || {
+    name: user?.name || 'Sarah Connor',
+    avatar: user?.avatar || SARAH_AVATAR,
+  };
+
   return (
     <div className="flex flex-col w-full max-w-2xl mx-auto px-4 pb-32 pt-2">
       {/* Top Utility Context Bar */}
       <div className="py-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
-          <span onClick={onBack} className="hover:text-primary transition-colors cursor-pointer">
-            {t('projects')}
+          <span onClick={onBack} className="hover:text-primary transition-colors cursor-pointer flex items-center gap-1">
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span>{t('projects')}</span>
           </span>
           <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
-          <span className="text-primary font-semibold">{currentTask.project || 'Q3 Strategy'}</span>
+          <span className="text-primary font-semibold truncate max-w-[150px]">{currentTask.project || 'Reja'}</span>
         </div>
 
         {/* Options Menu */}
@@ -138,41 +169,40 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           <button
             aria-label="Task options"
             onClick={() => setShowMenu(!showMenu)}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface-variant transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
           >
-            <span className="material-symbols-outlined text-[20px]">more_horiz</span>
+            <span className="material-symbols-outlined text-[20px]">more_vert</span>
           </button>
 
           {showMenu && (
-            <div className="absolute right-0 top-11 z-30 w-48 bg-surface-container-lowest border border-surface-container-high rounded-xl shadow-xl p-1 flex flex-col gap-1">
-              <button
-                onClick={() => {
-                  setShowMenu(false);
-                  navigator.clipboard?.writeText(window.location.href);
-                }}
-                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-surface-container text-left text-on-surface text-xs font-medium"
-              >
-                <span className="material-symbols-outlined text-[18px] text-tertiary">share</span>
-                <span>{t('shareLink')}</span>
-              </button>
+            <div className="absolute right-0 top-10 w-44 bg-surface-container-lowest border border-surface-container-high rounded-xl shadow-xl p-1.5 z-30">
               <button
                 onClick={() => {
                   setShowMenu(false);
                   onEditTask(currentTask);
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-surface-container text-left text-on-surface text-xs font-medium"
+                className="w-full px-3 py-2 text-left text-xs font-semibold text-on-surface hover:bg-surface-container rounded-lg flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-[18px] text-primary">edit</span>
+                <span className="material-symbols-outlined text-[18px]">edit</span>
                 <span>{t('editBtn')}</span>
               </button>
-              <div className="h-px bg-surface-container my-0.5" />
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  handleQuickFixOverdue();
+                }}
+                className="w-full px-3 py-2 text-left text-xs font-semibold text-secondary hover:bg-secondary-container/30 rounded-lg flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">verified</span>
+                <span>{t('fixOverdue')}</span>
+              </button>
+              <div className="h-px bg-surface-container my-1" />
               <button
                 onClick={() => {
                   setShowMenu(false);
                   onDeleteTask(currentTask.id);
-                  onBack();
                 }}
-                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-error-container/40 text-left text-error text-xs font-medium"
+                className="w-full px-3 py-2 text-left text-xs font-semibold text-error hover:bg-error-container/30 rounded-lg flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">delete</span>
                 <span>{t('deleteTask')}</span>
@@ -210,7 +240,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           <div className="flex items-center gap-1.5">
             {/* High Priority Pill */}
             {currentTask.priority === 'high' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error-container/70 text-error text-[11px] font-bold tracking-wider uppercase shadow-[0_0_10px_rgba(186,26,26,0.2)] animate-pulse">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-error-container/70 text-error text-[11px] font-bold tracking-wider uppercase shadow-[0_0_10px_rgba(186,26,26,0.2)]">
                 <span className="w-1.5 h-1.5 rounded-full bg-error" />
                 {t('high')}
               </span>
@@ -239,7 +269,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                 onClick={handleSaveTitle}
                 className="px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-semibold"
               >
-                Save
+                Saqlash
               </button>
             </div>
           ) : (
@@ -248,7 +278,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
               className={`font-headline text-xl sm:text-2xl font-semibold text-on-surface tracking-tight leading-snug flex-1 p-1 rounded-lg hover:bg-surface-container-low transition-colors cursor-text ${
                 isCompleted ? 'line-through text-outline' : ''
               }`}
-              title="Click to edit title"
+              title="Sarlavhani tahrirlash uchun bosing"
             >
               {currentTask.title}
             </h1>
@@ -263,29 +293,38 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
         </div>
       </div>
 
-      {/* Overdue Alert Banner if active */}
+      {/* Overdue Alert Banner if active + 1-Click Fix */}
       {!isCompleted && currentTask.isOverdue && (
         <div className="mt-4">
-          <div className="relative overflow-hidden rounded-xl bg-error-container/40 border border-error-container/60 p-3.5 flex items-center justify-between gap-3 shadow-sm">
+          <div className="relative overflow-hidden rounded-xl bg-error-container/30 border border-error-container/60 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-full bg-error text-on-error flex items-center justify-center shrink-0 shadow-sm">
                 <span className="material-symbols-outlined text-[20px]">warning</span>
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="text-xs font-bold text-error tracking-tight truncate">
-                  {t('overdueWarning')} (2 hours)
+                  {t('overdueWarning')} (Kechikkan deb belgilangan)
                 </div>
                 <div className="text-[11px] text-on-error-container/90 truncate">
-                  Was due Today at 3:00 PM
+                  Ushbu vazifani to‘g‘rilash uchun bir marta bosing
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setShowRescheduleModal(true)}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-surface-container-lowest text-error text-xs font-bold shadow-sm hover:bg-surface transition-all active:scale-95"
-            >
-              {t('rescheduleBtn')}
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button
+                onClick={handleQuickFixOverdue}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">verified</span>
+                <span>{t('fixOverdue')}</span>
+              </button>
+              <button
+                onClick={() => setShowRescheduleModal(true)}
+                className="px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface text-xs font-semibold shadow-sm hover:bg-surface transition-all active:scale-95"
+              >
+                {t('rescheduleBtn')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -298,33 +337,42 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
             <p className="text-xs text-on-surface-variant">{t('rescheduleDesc')}</p>
             <div className="space-y-2">
               <button
-                onClick={() => handleReschedule('Tomorrow, 3:00 PM')}
+                onClick={() => handleReschedule('Bugun, 18:00')}
+                className="w-full text-left px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-xs font-bold text-primary flex items-center justify-between"
+              >
+                <span>Bugun, 18:00 (Xatolikni to‘g‘rilash)</span>
+                <span className="material-symbols-outlined text-[18px]">verified</span>
+              </button>
+              <button
+                onClick={() => handleReschedule('Ertaga, 15:00')}
                 className="w-full text-left px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface flex items-center justify-between"
               >
-                <span>Tomorrow, 3:00 PM</span>
+                <span>Ertaga, 15:00</span>
                 <span className="material-symbols-outlined text-[18px]">calendar_today</span>
               </button>
               <button
-                onClick={() => handleReschedule('This Friday, 5:00 PM')}
+                onClick={() => handleReschedule('Juma, 17:00')}
                 className="w-full text-left px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface flex items-center justify-between"
               >
-                <span>This Friday, 5:00 PM</span>
+                <span>Bu juma, 17:00</span>
                 <span className="material-symbols-outlined text-[18px]">calendar_today</span>
               </button>
               <button
-                onClick={() => handleReschedule('Next Monday, 10:00 AM')}
+                onClick={() => handleReschedule('Dushanba, 10:00')}
                 className="w-full text-left px-3 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-xs font-semibold text-on-surface flex items-center justify-between"
               >
-                <span>Next Monday, 10:00 AM</span>
+                <span>Keyingi dushanba, 10:00</span>
                 <span className="material-symbols-outlined text-[18px]">calendar_today</span>
               </button>
             </div>
-            <button
-              onClick={() => setShowRescheduleModal(false)}
-              className="w-full py-2 rounded-xl bg-surface-container-high text-on-surface text-xs font-semibold"
-            >
-              {t('cancel')}
-            </button>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
+              >
+                {t('cancel')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -335,11 +383,13 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
           {/* Due Date */}
           <div className="p-3 rounded-xl bg-surface-container border border-surface-container-high/40 flex flex-col gap-1">
             <div className="flex items-center gap-1.5 text-on-surface-variant">
-              <span className="material-symbols-outlined text-[18px] text-error">calendar_clock</span>
+              <span className={`material-symbols-outlined text-[18px] ${currentTask.isOverdue ? 'text-error' : 'text-primary'}`}>
+                calendar_clock
+              </span>
               <span className="text-[10px] uppercase font-bold tracking-wider">{t('sortDeadline')}</span>
             </div>
-            <div className="text-xs font-bold text-on-surface">{currentTask.dueDate}</div>
-            <div className="text-[11px] text-on-surface-variant">{currentTask.dueTime || '3:00 PM (EDT)'}</div>
+            <div className="text-xs font-bold text-on-surface truncate">{currentTask.dueDate}</div>
+            <div className="text-[11px] text-on-surface-variant">{currentTask.dueTime || '15:00'}</div>
           </div>
 
           {/* Reminder */}
@@ -361,13 +411,13 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
               <span className="text-[10px] uppercase font-bold tracking-wider">{t('assigneeLabel')}</span>
             </div>
             <div className="flex items-center gap-2 mt-0.5 min-w-0">
-              <img
-                alt="Sarah Connor"
-                className="w-6 h-6 rounded-full object-cover shrink-0 ring-1 ring-primary/20"
-                src={currentTask.assignees?.[0]?.avatar || SARAH_AVATAR}
+              <UserAvatar
+                name={primaryAssignee.name}
+                avatar={primaryAssignee.avatar}
+                size="sm"
               />
               <span className="text-xs font-bold text-on-surface truncate">
-                {currentTask.assignees?.[0]?.name || 'Sarah Connor'}
+                {primaryAssignee.name}
               </span>
             </div>
           </div>
@@ -379,7 +429,7 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
               <span className="text-[10px] uppercase font-bold tracking-wider">{t('tagCategory')}</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {(currentTask.tags || ['Strategy', 'Q3']).map((tag) => (
+              {(currentTask.tags || ['Reja', currentTask.category]).map((tag) => (
                 <span
                   key={tag}
                   className="px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant text-[10px] font-bold"
@@ -521,10 +571,11 @@ export const TaskDetailsScreen: React.FC<TaskDetailsScreenProps> = ({
                   <span className="material-symbols-outlined text-[16px]">schedule</span>
                 </div>
               ) : (
-                <img
-                  alt={act.author}
-                  className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5 ring-1 ring-surface-container-high"
-                  src={act.avatar || SARAH_AVATAR}
+                <UserAvatar
+                  name={act.author}
+                  avatar={act.avatar}
+                  size="sm"
+                  className="mt-0.5"
                 />
               )}
               <div className="flex flex-col flex-1 p-2.5 rounded-xl bg-surface-container border border-surface-container-high/40">

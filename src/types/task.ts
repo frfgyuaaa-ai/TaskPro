@@ -59,11 +59,13 @@ export interface Task {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
   email: string;
   avatar: string;
   role: string;
   appsConnected: number;
+  avatarColor?: string;
 }
 
 export type Screen = 'feed' | 'new_task' | 'task_details' | 'auth' | 'today' | 'categories' | 'profile';

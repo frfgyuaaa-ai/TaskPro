@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Category, Priority, Subtask, Task, Attachment } from '../types/task';
+import { Category, Priority, Subtask, Task, Attachment, UserProfile } from '../types/task';
 import { SARAH_AVATAR, COLLEAGUE_1 } from '../data/initialTasks';
 import { useTranslation } from '../i18n/LanguageContext';
 
@@ -7,26 +7,28 @@ interface NewTaskScreenProps {
   onSaveTask: (task: Task) => void;
   onCancel: () => void;
   editingTask?: Task | null;
+  user?: UserProfile;
 }
 
 export const NewTaskScreen: React.FC<NewTaskScreenProps> = ({
   onSaveTask,
   onCancel,
   editingTask,
+  user,
 }) => {
   const { t } = useTranslation();
   const [taskName, setTaskName] = useState(
-    editingTask?.title || 'Design System Architecture Review'
+    editingTask?.title || ''
   );
   const [category, setCategory] = useState<Category>(
     editingTask?.category || 'Work'
   );
   const [priority, setPriority] = useState<Priority>(
-    editingTask?.priority || 'high'
+    editingTask?.priority || 'medium'
   );
-  const [selectedPreset, setSelectedPreset] = useState<string>('Tomorrow');
-  const [dateStr, setDateStr] = useState(editingTask?.dueDate || 'Oct 24, 2024');
-  const [timeStr, setTimeStr] = useState(editingTask?.dueTime || '03:00 PM');
+  const [selectedPreset, setSelectedPreset] = useState<string>('Bugun');
+  const [dateStr, setDateStr] = useState(editingTask?.dueDate || 'Bugun, 18:00');
+  const [timeStr, setTimeStr] = useState(editingTask?.dueTime || '06:00 PM');
   const [reminderEnabled, setReminderEnabled] = useState(
     editingTask?.reminder?.enabled ?? true
   );
@@ -34,15 +36,11 @@ export const NewTaskScreen: React.FC<NewTaskScreenProps> = ({
     editingTask?.reminder?.timing || '30m'
   );
   const [description, setDescription] = useState(
-    editingTask?.description ||
-      'Standardize color semantics for high-contrast accessibility tokens across Web and iOS applications.'
+    editingTask?.description || ''
   );
 
   const [subtasks, setSubtasks] = useState<Subtask[]>(
-    editingTask?.subtasks || [
-      { id: 'st-sketch', title: 'Prepare wireframe sketches', completed: true },
-      { id: 'st-type', title: 'Review typography scale', completed: false },
-    ]
+    editingTask?.subtasks || []
   );
   const [newSubtaskText, setNewSubtaskText] = useState('');
 
@@ -119,8 +117,7 @@ export const NewTaskScreen: React.FC<NewTaskScreenProps> = ({
           subtasks,
           attachments,
           assignees: editingTask?.assignees || [
-            { name: 'Sarah Connor', avatar: SARAH_AVATAR },
-            { name: 'Elena Rostova', avatar: COLLEAGUE_1 },
+            { name: user?.name || 'Sarah Connor', avatar: user?.avatar || SARAH_AVATAR },
           ],
           reminder: {
             enabled: reminderEnabled,

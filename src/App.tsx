@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Screen, Task, UserProfile, Category } from './types/task';
-import { INITIAL_TASKS, CURRENT_USER } from './data/initialTasks';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { TasksFeedScreen } from './screens/TasksFeedScreen';
@@ -11,10 +10,17 @@ import { TodayScreen } from './screens/TodayScreen';
 import { CategoriesScreen } from './screens/CategoriesScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { LanguageProvider, useTranslation } from './i18n/LanguageContext';
+import {
+  getCurrentAccount,
+  getAccountTasks,
+  saveAccountTasks,
+  saveAccount,
+  isUserLoggedIn,
+  setSessionLoggedIn,
+  Account,
+} from './utils/accountManager';
 
-const TASKS_STORAGE_KEY = 'taskpro_tasks_v1';
 const THEME_STORAGE_KEY = 'taskpro_theme_v1';
-const USER_STORAGE_KEY = 'taskpro_user_v1';
 
 function AppContent() {
   const { t } = useTranslation();
@@ -41,33 +47,28 @@ function AppContent() {
 
   const toggleDarkMode = () => setIsDarkMode((prev) => !prev);
 
-  // User state
+  // User state - persistent by active account
   const [user, setUser] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem(USER_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : CURRENT_USER;
-    } catch {
-      return CURRENT_USER;
-    }
+    return getCurrentAccount();
   });
 
-  // Tasks state
+  // Tasks state - persistent per account
   const [tasks, setTasks] = useState<Task[]>(() => {
-    try {
-      const saved = localStorage.getItem(TASKS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_TASKS;
-    } catch {
-      return INITIAL_TASKS;
-    }
+    const acc = getCurrentAccount();
+    return getAccountTasks(acc.id, acc.name);
   });
 
+  // Persistent login state - user NEVER gets kicked out
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return isUserLoggedIn();
+  });
+
+  // Save tasks for current user account
   useEffect(() => {
-    try {
-      localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-    } catch (err) {
-      console.error('Failed to save tasks', err);
+    if (user && user.id) {
+      saveAccountTasks(user.id, tasks);
     }
-  }, [tasks]);
+  }, [tasks, user]);
 
   // Screen navigation state
   const [currentScreen, setCurrentScreen] = useState<Screen>('feed');
@@ -87,20 +88,20 @@ function AppContent() {
   // Task actions
   const handleToggleTaskComplete = (taskId: string) => {
     setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const isDone = t.status === 'completed';
+      prev.map((taskItem) => {
+        if (taskItem.id === taskId) {
+          const isDone = taskItem.status === 'completed';
           const nextStatus = isDone ? 'in_progress' : 'completed';
           const completedAt = nextStatus === 'completed' ? 'Just now' : undefined;
-          showToast(nextStatus === 'completed' ? '✓ ' + (t.status ? 'Completed' : 'Done') : 'Reopened');
+          showToast(nextStatus === 'completed' ? '✓ ' + t('completedStatus') : 'Qayta ochildi');
           return {
-            ...t,
+            ...taskItem,
             status: nextStatus,
             completedAt,
-            isOverdue: nextStatus === 'completed' ? false : t.isOverdue,
+            isOverdue: nextStatus === 'completed' ? false : taskItem.isOverdue,
           };
         }
-        return t;
+        return taskItem;
       })
     );
 
@@ -135,7 +136,7 @@ function AppContent() {
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, isPinned: !t.isPinned } : t))
     );
-    showToast('Pin updated');
+    showToast('Qadalgan holat yangilandi');
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -144,7 +145,7 @@ function AppContent() {
       setSelectedTask(null);
       setCurrentScreen('feed');
     }
-    showToast('Task removed');
+    showToast('Vazifa o‘chirildi');
   };
 
   const handleSaveTask = (task: Task) => {
@@ -158,7 +159,7 @@ function AppContent() {
     setEditingTask(null);
     setSelectedTask(task);
     setCurrentScreen('task_details');
-    showToast('✓ Saved');
+    showToast('✓ Saqlandi');
   };
 
   const handleSelectTask = (task: Task) => {
@@ -176,14 +177,92 @@ function AppContent() {
     setCurrentScreen('new_task');
   };
 
-  const handleLoginSuccess = (newUser: UserProfile) => {
+  // Fix overdue / remove error
+  const handleFixOverdueTask = (taskId?: string) => {
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (!taskId || t.id === taskId) {
+          return {
+            ...t,
+            isOverdue: false,
+            dueDate: 'Bugun, 18:00',
+          };
+        }
+        return t;
+      })
+    );
+
+    if (selectedTask && (!taskId || selectedTask.id === taskId)) {
+      setSelectedTask((prev) =>
+        prev
+          ? {
+              ...prev,
+              isOverdue: false,
+              dueDate: 'Bugun, 18:00',
+            }
+          : null
+      );
+    }
+
+    showToast('✓ ' + (t('fixedOverdueToast') || 'Muddat yangilandi va xatolik yo‘qotildi!'));
+  };
+
+  // Login / Signup success handler
+  const handleLoginSuccess = (newUser: UserProfile, initialTasks?: Task[]) => {
     setUser(newUser);
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
+    if (initialTasks && initialTasks.length > 0) {
+      setTasks(initialTasks);
+    } else if (newUser.id) {
+      setTasks(getAccountTasks(newUser.id, newUser.name));
+    }
+    setIsLoggedIn(true);
+    setSessionLoggedIn(true);
     setCurrentScreen('feed');
     showToast(`Salom, ${newUser.name.split(' ')[0]}!`);
   };
 
+  // Update User Profile
+  const handleUpdateUser = (updated: UserProfile) => {
+    setUser(updated);
+    const acc: Account = {
+      id: updated.id || user.id || `user-${Date.now()}`,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role,
+      avatar: updated.avatar,
+      avatarColor: updated.avatarColor,
+      appsConnected: updated.appsConnected,
+      createdAt: Date.now(),
+    };
+    saveAccount(acc);
+
+    // Synchronize tasks assignees to match updated name and avatar
+    setTasks((prev) =>
+      prev.map((t) => ({
+        ...t,
+        assignees: t.assignees?.map((a) =>
+          a.name === user.name
+            ? { ...a, name: updated.name, avatar: updated.avatar }
+            : a
+        ),
+      }))
+    );
+
+    showToast('✓ ' + (t('profileUpdated') || 'Profil muvaffaqiyatli saqlandi!'));
+  };
+
+  // Switch between existing accounts
+  const handleSwitchAccount = (targetAccount: Account) => {
+    setUser(targetAccount);
+    localStorage.setItem('taskpro_current_account_id', targetAccount.id);
+    const accTasks = getAccountTasks(targetAccount.id, targetAccount.name);
+    setTasks(accTasks);
+    showToast(`Hisobga ulandi: ${targetAccount.name}`);
+  };
+
   const handleLogout = () => {
+    setSessionLoggedIn(false);
+    setIsLoggedIn(false);
     setCurrentScreen('auth');
     showToast('Tizimdan chiqildi');
   };
@@ -204,7 +283,7 @@ function AppContent() {
 
   // Count of tasks due today
   const dueTodayCount = tasks.filter(
-    (t) => t.dueDate.toLowerCase().includes('today') || t.status === 'in_progress'
+    (t) => t.dueDate.toLowerCase().includes('today') || t.dueDate.toLowerCase().includes('bugun') || t.status === 'in_progress'
   ).length;
 
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
@@ -221,12 +300,19 @@ function AppContent() {
         </div>
       )}
 
-      {/* Render Auth Screen as standalone without standard shell if active */}
-      {currentScreen === 'auth' ? (
+      {/* Render Auth Screen as standalone without standard shell if user explicitly logged out or chose switch */}
+      {!isLoggedIn || currentScreen === 'auth' ? (
         <AuthScreen
           onLoginSuccess={handleLoginSuccess}
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}
+          onCancel={
+            isLoggedIn
+              ? () => {
+                  setCurrentScreen('feed');
+                }
+              : undefined
+          }
         />
       ) : (
         <>
@@ -238,6 +324,8 @@ function AppContent() {
             onToggleDarkMode={toggleDarkMode}
             user={user}
             title={screenTitle}
+            tasks={tasks}
+            onFixOverdueTask={handleFixOverdueTask}
             onBack={() => {
               if (currentScreen === 'new_task' && selectedTask) {
                 setCurrentScreen('task_details');
@@ -252,12 +340,14 @@ function AppContent() {
             {currentScreen === 'feed' && (
               <TasksFeedScreen
                 tasks={tasks}
+                user={user}
                 onToggleTaskComplete={handleToggleTaskComplete}
                 onToggleSubtask={handleToggleSubtask}
                 onTogglePin={handleTogglePin}
                 onDeleteTask={handleDeleteTask}
                 onSelectTask={handleSelectTask}
                 onNewTask={handleNewTask}
+                onFixOverdueTask={handleFixOverdueTask}
                 isDarkMode={isDarkMode}
                 onToggleDarkMode={toggleDarkMode}
               />
@@ -266,6 +356,7 @@ function AppContent() {
             {currentScreen === 'new_task' && (
               <NewTaskScreen
                 onSaveTask={handleSaveTask}
+                user={user}
                 onCancel={() => {
                   if (selectedTask) {
                     setCurrentScreen('task_details');
@@ -280,10 +371,11 @@ function AppContent() {
             {currentScreen === 'task_details' && selectedTask && (
               <TaskDetailsScreen
                 task={selectedTask}
+                user={user}
                 onUpdateTask={(updated) => {
                   setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
                   setSelectedTask(updated);
-                  showToast('Updated');
+                  showToast('Yangilandi');
                 }}
                 onDeleteTask={handleDeleteTask}
                 onEditTask={handleEditTask}
@@ -303,7 +395,7 @@ function AppContent() {
             {currentScreen === 'categories' && (
               <CategoriesScreen
                 tasks={tasks}
-                onSelectCategory={(category: Category) => {
+                onSelectCategory={(_category: Category) => {
                   setCurrentScreen('feed');
                 }}
                 onSelectTask={handleSelectTask}
@@ -317,6 +409,8 @@ function AppContent() {
                 isDarkMode={isDarkMode}
                 onToggleDarkMode={toggleDarkMode}
                 onLogout={handleLogout}
+                onUpdateUser={handleUpdateUser}
+                onSwitchAccount={handleSwitchAccount}
                 completedTasksCount={completedCount}
                 totalTasksCount={tasks.length}
               />
