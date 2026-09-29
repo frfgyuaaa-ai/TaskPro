@@ -1,0 +1,7 @@
+{
+  "name": "TaskPro",
+  "description": "High-velocity task management and productivity suite with seamless project synchronization, subtasks, priorities, and glassmorphic interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
